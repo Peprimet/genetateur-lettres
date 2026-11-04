@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peprimet Poem Generator</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Georgia', serif;
+            background-color: #0a0c14;
+            background-image:
+                radial-gradient(1px 1px at 15% 25%, rgba(255,255,255,.35) 50%, transparent 50%),
+                radial-gradient(1px 1px at 70% 15%, rgba(255,255,255,.25) 50%, transparent 50%),
+                radial-gradient(1.5px 1.5px at 85% 60%, rgba(255,255,255,.3) 50%, transparent 50%),
+                radial-gradient(1px 1px at 30% 80%, rgba(255,255,255,.2) 50%, transparent 50%),
+                radial-gradient(1.5px 1.5px at 55% 45%, rgba(255,255,255,.25) 50%, transparent 50%),
+                radial-gradient(ellipse at 50% -20%, rgba(189,147,249,.12), transparent 60%);
+            color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 24px;
+        }
+        .container {
+            background: rgba(22, 24, 38, .82);
+            backdrop-filter: blur(8px);
+            padding: 34px;
+            border-radius: 18px;
+            border: 1px solid rgba(255,255,255,.08);
+            box-shadow: 0 20px 60px rgba(0,0,0,.55);
+            max-width: 560px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            margin: 0 0 6px;
+            font-size: 1.9em;
+            background: linear-gradient(90deg, #ff79c6, #bd93f9);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .subtitle { text-align: center; color: #8b90a7; margin: 0 0 26px; font-size: .92em; }
+
+        label {
+            display: block;
+            margin: 16px 0 6px;
+            color: #bd93f9;
+            font-weight: bold;
+            font-size: .8em;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+        }
+        textarea, select {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid #2c2f45;
+            background: #161826;
+            color: #f8f8f2;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        textarea { resize: vertical; min-height: 90px; }
+        textarea:focus, select:focus {
+            outline: none;
+            border-color: #ff79c6;
+            box-shadow: 0 0 0 3px rgba(255,121,198,.15);
+        }
+
+        #generateBtn {
+            width: 100%;
+            margin-top: 22px;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ff79c6, #bd93f9);
+            color: #fff;
+            font-weight: bold;
+            font-size: 16px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: filter .15s, transform .15s;
+        }
+        #generateBtn:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
+        #generateBtn:disabled {
+            background: #3a3f58;
+            color: #9aa0b8;
+            cursor: not-allowed;
+        }
+
+        .output {
+            margin-top: 26px;
+            padding: 24px;
+            background: rgba(255,255,255,.03);
+            border: 1px solid rgba(255,255,255,.08);
+            border-left: 4px solid #ff79c6;
+            border-radius: 10px;
+            display: none;
+        }
+        .poem-title {
+            color: #ff92df;
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 14px;
+        }
+        .poem-body {
+            white-space: pre-wrap;
+            font-style: italic;
+            line-height: 1.9;
+            color: #e8eaf2;
+        }
+        .poem-body.loading { color: #8b90a7; }
+        .note {
+            margin-top: 14px;
+            font-size: .8em;
+            color: #8b90a7;
+        }
+        .copyBtn {
+            margin-top: 16px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #bd93f9;
+            background: transparent;
+            color: #bd93f9;
+            font-size: 13px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .copyBtn:hover { background: rgba(189,147,249,.12); }
+
+        /* Révélation progressive des vers */
+        .vers {
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity .6s ease, transform .6s ease;
+        }
+        .output.revele .vers { opacity: 1; transform: none; }
+        .vers.vide { height: .9em; }
+
+        /* Barre d'actions sous le poème */
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+        .actions .copyBtn { margin-top: 0; }
+
+        /* Compteur de caractères + erreur inline */
+        .sous-champ {
+            display: flex; justify-content: space-between; align-items: baseline;
+            margin-top: 5px; font-size: .75em; color: #6b7089; min-height: 1.3em;
+        }
+        #promptErreur { color: #ff8aa0; }
+        .champ-erreur { border-color: #ff5c7a !important; animation: secousse .4s; }
+        @keyframes secousse {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Peprimet Poem Generator</h1>
+    <p class="subtitle">Décrivez le poème que vous souhaitez obtenir</p>
+
+    <label for="prompt">Votre demande :</label>
+    <textarea id="prompt" maxlength="300" placeholder="Ex : un amour perdu sous la pluie, la solitude d'un phare, le dernier été de l'enfance...  (Ctrl+Entrée pour composer)"></textarea>
+    <div class="sous-champ">
+        <span id="promptErreur"></span>
+        <span id="charCount">0 / 300</span>
+    </div>
+
+    <label for="theme">Thème :</label>
+    <select id="theme">
+        <option value="libre">Libre (le poète choisit)</option>
+        <option value="amour">💕 Amour</option>
+        <option value="tristesse">😢 Tristesse</option>
+        <option value="nature">🌿 Nature</option>
+        <option value="nuit">🌙 Nuit</option>
+        <option value="espoir">✨ Espoir</option>
+    </select>
+
+    <label for="lines">Nombre de vers :</label>
+    <select id="lines">
+        <option value="4">4 vers (Très court)</option>
+        <option value="8">8 vers (Court)</option>
+        <option value="16" selected>16 vers (Moyen)</option>
+        <option value="24">24 vers (Long)</option>
+        <option value="32">32 vers (Très long)</option>
+    </select>
+
+    <button id="generateBtn">✨ Composer le poème</button>
+
+    <div id="result" class="output" role="status" aria-live="polite"></div>
+</div>
+
+<script>
+    const btn = document.getElementById('generateBtn');
+    const resultDiv = document.getElementById('result');
+    const promptEl = document.getElementById('prompt');
+    const charCount = document.getElementById('charCount');
+    const promptErreur = document.getElementById('promptErreur');
+
+    let currentPoem = '';
+    let derniereDemande = null;
+    let timerAttente = null;
+
+    const MESSAGES_ATTENTE = [
+        "L'encre se réchauffe…",
+        "Le poème cherche ses rimes…",
+        "Les images s'assemblent…",
+        "Un dernier vers résiste…",
+        "Presque à toi…"
+    ];
+
+    function esc(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    /* Compteur de caractères + effacement de l'erreur */
+    promptEl.addEventListener('input', () => {
+        charCount.textContent = `${promptEl.value.length} / 300`;
+        promptErreur.textContent = '';
+    });
+
+    /* Ctrl+Entrée (ou Cmd+Entrée sur Mac) = composer */
+    promptEl.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') btn.click();
+    });
+
+    /* Messages d'attente rotatifs pendant l'appel réseau */
+    function demarrerAttente() {
+        resultDiv.classList.remove('revele');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `<div class="poem-body loading">${esc(MESSAGES_ATTENTE[0])}</div>`;
+        let i = 0;
+        timerAttente = setInterval(() => {
+            i = (i + 1) % MESSAGES_ATTENTE.length;
+            const el = resultDiv.querySelector('.loading');
+            if (el) el.textContent = MESSAGES_ATTENTE[i];
+        }, 2600);
+    }
+    function arreterAttente() { clearInterval(timerAttente); }
+
+    /* Affichage du poème, révélé vers par vers */
+    function renderPoem(poem, source) {
+        const idx = poem.indexOf('\n');
+        const titre = (idx === -1 ? poem : poem.slice(0, idx)).trim();
+        const corps = (idx === -1 ? '' : poem.slice(idx + 1)).trim();
+
+        const note = source === 'erreur'
+            ? `<div class="note">⚠️ Problème technique — voir le message ci-dessus.</div>`
+            : '';
+
+        const lignesHTML = corps.split('\n').map(l =>
+            l.trim() ? `<div class="vers">${esc(l)}</div>` : `<div class="vers vide"></div>`
+        ).join('');
+
+        resultDiv.classList.remove('revele');
+        resultDiv.innerHTML =
+            `<div class="poem-title">${esc(titre)}</div>` +
+            `<div class="poem-body">${lignesHTML}</div>` +
+            note +
+            `<div class="actions" id="actions"></div>`;
+
+        const versEls = resultDiv.querySelectorAll('.vers');
+        const pas = Math.min(130, Math.ceil(2800 / Math.max(1, versEls.length)));
+        versEls.forEach((el, k) => { el.style.transitionDelay = `${k * pas}ms`; });
+
+        requestAnimationFrame(() => requestAnimationFrame(() => resultDiv.classList.add('revele')));
+
+        construireActions();
+    }
+
+    /* Boutons sous le poème : copier / autre version / télécharger */
+    function construireActions() {
+        document.getElementById('actions').innerHTML =
+            `<button class="copyBtn" id="copyBtn">📋 Copier</button>` +
+            `<button class="copyBtn" id="againBtn">🔄 Autre version</button>` +
+            `<button class="copyBtn" id="dlBtn">⬇️ Télécharger</button>`;
+
+        document.getElementById('copyBtn').onclick = async () => {
+            if (await copierTexte(currentPoem)) {
+                const b = document.getElementById('copyBtn');
+                b.innerText = '✅ Copié !';
+                setTimeout(() => b.innerText = '📋 Copier', 1500);
+            }
+        };
+        document.getElementById('againBtn').onclick = () => {
+            if (derniereDemande) lancerGeneration(derniereDemande);
+        };
+        document.getElementById('dlBtn').onclick = () => {
+            const nom = (currentPoem.split('\n')[0] || 'poeme')
+                .replace(/[^\p{L}\p{N} -]/gu, '').trim()
+                .replace(/\s+/g, '-').toLowerCase() || 'poeme';
+            const blob = new Blob([currentPoem + "\n\n— Peprimet Poem Generator\n"], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${nom}.txt`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        };
+    }
+
+    /* Copier avec repli pour les navigateurs plus anciens */
+    async function copierTexte(t) {
+        try { await navigator.clipboard.writeText(t); return true; }
+        catch {
+            const ta = document.createElement('textarea');
+            ta.value = t;
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand('copy');
+            ta.remove();
+            return ok;
+        }
+    }
+
+    function afficherErreur(msg) {
+        resultDiv.classList.remove('revele');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `<div class="poem-body loading">⚠️ ${esc(msg)}</div>`;
+    }
+
+    /* Lancement d'une génération */
+    async function lancerGeneration(demande) {
+        derniereDemande = demande;
+        btn.disabled = true;
+        btn.innerText = '🖋️ Composition en cours…';
+        demarrerAttente();
+
+        try {
+            const r = await fetch('/generate-poem', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(demande)
+            });
+            const texte = await r.text();
+            let data = null;
+            try { data = JSON.parse(texte); } catch {}
+
+            arreterAttente();
+            btn.disabled = false;
+            btn.innerText = '✨ Composer le poème';
+
+            if (data && data.poem) {
+                currentPoem = data.poem;
+                renderPoem(data.poem, data.source);
+            } else if (data && data.error) {
+                afficherErreur(data.error);
+            } else {
+                afficherErreur(`Le serveur a répondu (HTTP ${r.status}) mais pas comme prévu.`);
+            }
+        } catch (e) {
+            arreterAttente();
+            btn.disabled = false;
+            btn.innerText = '✨ Composer le poème';
+            afficherErreur('Serveur injoignable — il dort peut-être (Render gratuit) ou il a crashé.');
+        }
+    }
+
+    /* Clic sur le bouton principal */
+    btn.addEventListener('click', () => {
+        const texte = promptEl.value.trim();
+        if (!texte) {
+            promptErreur.textContent = "Dis-moi d'abord de quoi doit parler le poème 🙏";
+            promptEl.classList.remove('champ-erreur');
+            void promptEl.offsetWidth;
+            promptEl.classList.add('champ-erreur');
+            promptEl.focus();
+            return;
+        }
+        lancerGeneration({
+            prompt: texte,
+            lines: document.getElementById('lines').value,
+            theme: document.getElementById('theme').value
+        });
+    });
+</script>
+
+</body>
+</html>
